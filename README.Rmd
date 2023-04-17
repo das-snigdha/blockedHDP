@@ -12,7 +12,7 @@ Implementation of sampling algorithm presented in the paper, Das, S., Niu, Y., N
 
 ## Overview
 
-Posterior computation in hierarchical Dirichlet process (HDP) mixture models is an active area of research in nonparametric Bayes inference of grouped data. We develop a blocked Gibbs sampler to sample from the posterior distribution of HDP under a univariate conjugate Gaussian mixture model, which produces statistically stable results, is highly scalable with respect to sample size, and is shown to have good mixing.
+Posterior computation in hierarchical Dirichlet process (HDP) mixture models is an active area of research in nonparametric Bayes inference of grouped data. We develop a blocked Gibbs sampler to sample from the posterior distribution of HDP, which produces statistically stable results, is highly scalable with respect to sample size, and is shown to have good mixing.
 
 ## Main Functions
 
@@ -51,13 +51,8 @@ Letting $j$ denote groups and $i$ denote observations within a group, we conside
 -   Truncation level : $L=10$.
 
 **Data generation** :
-```{r, include=FALSE, message=FALSE, warning=FALSE}
-set.seed(1234)
-```
-
-
 ```{r, message = FALSE, warning = FALSE}
-library(mcclust)
+library(mcclust); library(tidyverse) ; library(ggpubr)
 source("BGS.R")
 source("postestimates.R")
 
@@ -78,6 +73,8 @@ true.Z = vector(mode = "list", length = J)
 # Observations in each group is stored as a list
 # x[[j]] denotes observations in the jth group
 x = vector(mode = "list", length = J)
+
+set.seed(20)
 for(j in 1:J){
   true.Z[[j]] = sample(1:L, size = n[j], prob = Pi.true[j, ], replace = TRUE)
   x[[j]] = sapply(1:n[j], function(i) 
@@ -91,8 +88,8 @@ Specify the hyperparameters :
 # Number of MCMC samples and Burn in period.
 M = 1000; M.burn = 500
 
-# parameter specifications
-G = 0.1; B = 0.1; L.max = 10
+# hyperparameter specifications
+G = 1; B = 0.1; L.max = 10
 
 # grid points for density estimation
 xmin = min(unlist(x)) - 1 ; xmax = max(unlist(x)) + 1
@@ -111,7 +108,6 @@ Z.hat = getDahl(out_BGS)
 ```
 
 ```{r, include=FALSE}
-library(tidyverse) ; library(gridExtra); library(ggpubr)
 themegg = theme(
   # LABLES APPEARANCE
   panel.grid.major = element_blank(), 
@@ -136,6 +132,8 @@ themegg = theme(
 **Plots showing the true and estimated cluster labels** :
 
 ```{r, warning=FALSE, message=FALSE}
+# all plots follow a pre-specified theme stored in "themegg"
+
 # data frame for plotting cluster labels
 clusters = lapply(seq_len(J), function(j) 
   data.frame("X" = x[[j]], "True" = as.character(true.Z[[j]]), "BGS" = as.character(Z.hat[[j]]) ))
@@ -149,6 +147,7 @@ plot_clusters = function(j, clusters){
     geom_point(data = clusters[[j]], size = 1,
              mapping = aes(x = 1:nrow(clusters[[j]]), y = X, colour = True)) + themegg
   
+  # plot estimated clusters
   g.hat = ggplot() + labs(x = "", y = "", title = plot.title) + ylim(xmin, xmax) +
     geom_point(data = clusters[[j]], size = 1,
              mapping = aes(x = 1:nrow(clusters[[j]]), y = X, colour = BGS)) + themegg
@@ -194,6 +193,8 @@ est.dens = Reduce("+", dens.BGS)/M
 **Plots showing the true and estimated densities for each group overlaid on the histograms of the observed data** :
 
 ```{r, warning=FALSE, message=FALSE}
+# all plots follow a pre-specified theme stored in "themegg"
+
 # data frames for plotting histograms and densities
 dat_hist = data.frame(x = unlist(x), group = rep(c("Group 1", "Group 2", "Group 3"), each = n[1]))
 dens = c(cbind(t(true.density), t(est.dens)))

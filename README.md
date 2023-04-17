@@ -10,9 +10,9 @@ sampler for hierarchical Dirichlet processes”.
 Posterior computation in hierarchical Dirichlet process (HDP) mixture
 models is an active area of research in nonparametric Bayes inference of
 grouped data. We develop a blocked Gibbs sampler to sample from the
-posterior distribution of HDP under a univariate conjugate Gaussian
-mixture model, which produces statistically stable results, is highly
-scalable with respect to sample size, and is shown to have good mixing.
+posterior distribution of HDP, which produces statistically stable
+results, is highly scalable with respect to sample size, and is shown to
+have good mixing.
 
 ## Main Functions
 
@@ -76,7 +76,7 @@ Gaussian mixture model having 4 true components.
 **Data generation** :
 
 ``` r
-library(mcclust)
+library(mcclust); library(tidyverse) ; library(ggpubr)
 source("BGS.R")
 source("postestimates.R")
 
@@ -97,6 +97,8 @@ true.Z = vector(mode = "list", length = J)
 # Observations in each group is stored as a list
 # x[[j]] denotes observations in the jth group
 x = vector(mode = "list", length = J)
+
+set.seed(20)
 for(j in 1:J){
   true.Z[[j]] = sample(1:L, size = n[j], prob = Pi.true[j, ], replace = TRUE)
   x[[j]] = sapply(1:n[j], function(i) 
@@ -110,8 +112,8 @@ Specify the hyperparameters :
 # Number of MCMC samples and Burn in period.
 M = 1000; M.burn = 500
 
-# parameter specifications
-G = 0.1; B = 0.1; L.max = 10
+# hyperparameter specifications
+G = 1; B = 0.1; L.max = 10
 
 # grid points for density estimation
 xmin = min(unlist(x)) - 1 ; xmax = max(unlist(x)) + 1
@@ -132,6 +134,8 @@ Z.hat = getDahl(out_BGS)
 **Plots showing the true and estimated cluster labels** :
 
 ``` r
+# all plots follow a pre-specified theme stored in "themegg"
+
 # data frame for plotting cluster labels
 clusters = lapply(seq_len(J), function(j) 
   data.frame("X" = x[[j]], "True" = as.character(true.Z[[j]]), "BGS" = as.character(Z.hat[[j]]) ))
@@ -145,6 +149,7 @@ plot_clusters = function(j, clusters){
     geom_point(data = clusters[[j]], size = 1,
              mapping = aes(x = 1:nrow(clusters[[j]]), y = X, colour = True)) + themegg
   
+  # plot estimated clusters
   g.hat = ggplot() + labs(x = "", y = "", title = plot.title) + ylim(xmin, xmax) +
     geom_point(data = clusters[[j]], size = 1,
              mapping = aes(x = 1:nrow(clusters[[j]]), y = X, colour = BGS)) + themegg
@@ -158,7 +163,7 @@ g3 = plot_clusters(3, clusters)
 ggarrange(g1$g.true, g1$g.hat, g2$g.true, g2$g.hat, g3$g.true, g3$g.hat, ncol=2, nrow = 3)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 The adjusted Rand index between the true and BGS cluster labels :
 
@@ -168,7 +173,7 @@ ARI.global = mcclust::arandi(unlist(Z.hat), unlist(true.Z))
 ARI.global
 ```
 
-    ## [1] 0.922978
+    ## [1] 0.9453478
 
 ``` r
 # Group specific adjusted Rand indices
@@ -176,7 +181,7 @@ ARI = sapply(seq_len(J), function(j) arandi(Z.hat[[j]], true.Z[[j]]))
 ARI
 ```
 
-    ## [1] 1.0000000 0.8471121 0.9005652
+    ## [1] 0.9830315 0.9229645 0.8925251
 
 We estimate the densities for each group.
 
@@ -199,6 +204,8 @@ est.dens = Reduce("+", dens.BGS)/M
 on the histograms of the observed data** :
 
 ``` r
+# all plots follow a pre-specified theme stored in "themegg"
+
 # data frames for plotting histograms and densities
 dat_hist = data.frame(x = unlist(x), group = rep(c("Group 1", "Group 2", "Group 3"), each = n[1]))
 dens = c(cbind(t(true.density), t(est.dens)))
@@ -217,4 +224,4 @@ g.hist + geom_line(dat_dens, mapping = aes(x = grid, y = density, color = method
   theme(legend.position = "top", legend.title=element_blank()) + themegg
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
