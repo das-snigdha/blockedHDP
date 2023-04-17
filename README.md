@@ -1,7 +1,7 @@
 Blocked Gibbs sampler for hierarchical Dirichlet processes
 ================
 
-Implementation of sampling algorithm presented in the paper, Das, S.,
+Implementation of sampling algorithm proposed in the paper, Das, S.,
 Niu, Y., Ni, Y., Mallick, B.K., and Pati, D. (2023+) “Blocked Gibbs
 sampler for hierarchical Dirichlet processes”.
 
@@ -118,7 +118,11 @@ G = 1; B = 0.1; L.max = 10
 # grid points for density estimation
 xmin = min(unlist(x)) - 1 ; xmax = max(unlist(x)) + 1
 y.grid = seq(xmin, xmax, length = 100)
+```
 
+**Run the blocked Gibbs sampler** :
+
+``` r
 # run the blocked gibbs sampler
 out_BGS = blocked_gibbs(x = x, L.max = L.max, gam = G, phi.param = c(xi, lambda, tau), 
                         b0 = B, Burn.in = M.burn, M = M, est.density = TRUE,y.grid = y.grid)
@@ -163,12 +167,13 @@ g3 = plot_clusters(3, clusters)
 ggarrange(g1$g.true, g1$g.hat, g2$g.true, g2$g.hat, g3$g.true, g3$g.hat, ncol=2, nrow = 3)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
-The adjusted Rand index between the true and BGS cluster labels :
+The adjusted Rand indices between the true and estimated cluster labels
+:
 
 ``` r
-# Global adjusted Rand index
+# Adjusted Rand index corresponding to global cluster labels
 ARI.global = mcclust::arandi(unlist(Z.hat), unlist(true.Z))
 ARI.global
 ```
@@ -176,14 +181,15 @@ ARI.global
     ## [1] 0.9453478
 
 ``` r
-# Group specific adjusted Rand indices
-ARI = sapply(seq_len(J), function(j) arandi(Z.hat[[j]], true.Z[[j]]))
+# Adjusted Rand indices corresponding to group specific cluster labels
+ARI = sapply(seq_len(J), function(j) mcclust::arandi(Z.hat[[j]], true.Z[[j]]))
 ARI
 ```
 
     ## [1] 0.9830315 0.9229645 0.8925251
 
-We estimate the densities for each group.
+Densities corresponding to each group is estimated using posterior
+samples.
 
 ``` r
 # True density for each group
@@ -209,7 +215,8 @@ on the histograms of the observed data** :
 # data frames for plotting histograms and densities
 dat_hist = data.frame(x = unlist(x), group = rep(c("Group 1", "Group 2", "Group 3"), each = n[1]))
 dens = c(cbind(t(true.density), t(est.dens)))
-dat_dens = data.frame(grid = y.grid, density = dens, method = rep(c("True", "BGS"), each = 3*100), group = rep(c("Group 1", "Group 2", "Group 3"), each = 100, times = 2))
+dat_dens = data.frame(grid = y.grid, density = dens, method = rep(c("True", "BGS"), each = 3*100), 
+                      group = rep(c("Group 1", "Group 2", "Group 3"), each = 100, times = 2))
 
 # plot the histograms for each group
 g.hist = ggplot(dat_hist, aes(x = x))  +
@@ -217,11 +224,11 @@ g.hist = ggplot(dat_hist, aes(x = x))  +
   facet_wrap(~as.factor(group), ncol = 1) + xlim(xmin, xmax) + themegg
 
 # overlay the histograms with density plots
-g.hist + geom_line(dat_dens, mapping = aes(x = grid, y = density, color = method, size = method)) +
-  scale_size_manual(values = c(True = 0.5, BGS = 0.5))+
-  scale_color_manual(values=c("dodgerblue3", "sienna"))+ 
-  labs(x = "", y = "") + guides(size = guide_legend(nrow = 1)) +
+g.hist + 
+  geom_line(dat_dens, mapping = aes(x = grid, y = density, color = method, size = method)) +
+  scale_size_manual(values = c(True = 0.5, BGS = 0.5)) +
+  scale_color_manual(values=c("red2","blue4")) + labs(x = "", y = "") + 
   theme(legend.position = "top", legend.title=element_blank()) + themegg
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
