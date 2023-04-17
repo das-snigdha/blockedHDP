@@ -65,10 +65,10 @@ Gaussian mixture model having 4 true components.
 
 **Other specifications** :
 
-- Prior on $\phi$ : $\mathcal{N}(\xi, \lambda^{-1})$,  $\xi = 0$,
+- Prior on $\phi$ : $\mathcal{N}(\xi, \lambda^{-1})$, $\xi = 0$,
   $\lambda=1$.
 
-- Prior on $\alpha_0$ : Gamma$(\gamma, b_0)$,  $\gamma = 1$,
+- Prior on $\alpha_0$ : Gamma $(\gamma, b_0)$, $\gamma = 1$,
   $b_0 = 0.1$.
 
 - Truncation level : $L=10$.
@@ -158,7 +158,7 @@ g3 = plot_clusters(3, clusters)
 ggarrange(g1$g.true, g1$g.hat, g2$g.true, g2$g.hat, g3$g.true, g3$g.hat, ncol=2, nrow = 3)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
 The adjusted Rand index between the true and BGS cluster labels :
 
@@ -168,7 +168,7 @@ ARI.global = mcclust::arandi(unlist(Z.hat), unlist(true.Z))
 ARI.global
 ```
 
-    ## [1] 0.9601396
+    ## [1] 0.922978
 
 ``` r
 # Group specific adjusted Rand indices
@@ -176,7 +176,7 @@ ARI = sapply(seq_len(J), function(j) arandi(Z.hat[[j]], true.Z[[j]]))
 ARI
 ```
 
-    ## [1] 0.9599978 0.9727607 0.8947388
+    ## [1] 1.0000000 0.8471121 0.9005652
 
 We estimate the densities for each group.
 
@@ -217,4 +217,4 @@ g.hist + geom_line(dat_dens, mapping = aes(x = grid, y = density, color = method
   theme(legend.position = "top", legend.title=element_blank()) + themegg
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->

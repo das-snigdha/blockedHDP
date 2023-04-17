@@ -8,50 +8,54 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Implementation of sampling algorithm presented in the paper, 
-Das, S., Niu, Y., Ni, Y., Mallick, B.K., and Pati, D. (2023+) "Blocked Gibbs sampler for hierarchical Dirichlet processes".
+Implementation of sampling algorithm presented in the paper, Das, S., Niu, Y., Ni, Y., Mallick, B.K., and Pati, D. (2023+) "Blocked Gibbs sampler for hierarchical Dirichlet processes".
 
 ## Overview
 
-Posterior computation in hierarchical Dirichlet process (HDP) mixture models is an active area of research in nonparametric Bayes inference of grouped data. We develop a blocked Gibbs sampler to sample
-from the posterior distribution of HDP under a univariate conjugate Gaussian mixture model, which produces statistically stable results, is highly scalable with respect to sample size, and is shown to have good mixing.
+Posterior computation in hierarchical Dirichlet process (HDP) mixture models is an active area of research in nonparametric Bayes inference of grouped data. We develop a blocked Gibbs sampler to sample from the posterior distribution of HDP under a univariate conjugate Gaussian mixture model, which produces statistically stable results, is highly scalable with respect to sample size, and is shown to have good mixing.
 
 ## Main Functions
 
-* **BGS.R** - Functions to implement the blocked Gibbs algorithm. The function `blocked_gibbs` performs posterior sampling using our proposed blocked Gibbs sampler.
+-   **BGS.R** - Functions to implement the blocked Gibbs algorithm. The function `blocked_gibbs` performs posterior sampling using our proposed blocked Gibbs sampler.
 
-* **rejectionsampler.R** - Functions to implement the rejection sampling algorithm for sampling the unnormalized global weights in our blocked Gibbs algorithm.
+-   **rejectionsampler.R** - Functions to implement the rejection sampling algorithm for sampling the unnormalized global weights in our blocked Gibbs algorithm.
 
-### Additional Functions 
+### Additional Functions
 
-* **CRF.R** - Functions to implement the Chinese restaurant franchise (CRF) ([Teh et al., 2006](https://people.eecs.berkeley.edu/~jordan/papers/hdp.pdf)) based collapsed Gibbs algorithm. The function `CRF_gibbs` performs posterior sampling using the CRF scheme.
+-   **CRF.R** - Functions to implement the Chinese restaurant franchise (CRF) ([Teh et al., 2006](https://people.eecs.berkeley.edu/~jordan/papers/hdp.pdf)) based collapsed Gibbs algorithm. The function `CRF_gibbs` performs posterior sampling using the CRF scheme.
 
-* **SS.R** - Functions to implement the exact slice sampler ([Amini et al., 2019](https://arxiv.org/abs/1903.08829)). Code taken from [aaamini/hdpslicer](https://github.com/aaamini/hdpslicer/blob/master/hdp_inference.R) with minor modifications for fitting a univariate conjugate Gaussian mixture model. The function `hdp_slice_sampler` implements the exact slice sampler.
+-   **SS.R** - Functions to implement the exact slice sampler ([Amini et al., 2019](https://arxiv.org/abs/1903.08829)). Code taken from [aaamini/hdpslicer](https://github.com/aaamini/hdpslicer/blob/master/hdp_inference.R) with minor modifications for fitting a univariate conjugate Gaussian mixture model. The function `hdp_slice_sampler` implements the exact slice sampler.
 
-* **postestimates.R** - Functions to get posterior estimates of cluster labels using the least squares clustering method ([Dahl, 2006](https://dahl.byu.edu/papers/dahl-2006.pdf)) and evaluate the log-likelihood of the Gaussian mixture model using posterior samples.
+-   **postestimates.R** - Functions to get posterior estimates of cluster labels using the least squares clustering method ([Dahl, 2006](https://dahl.byu.edu/papers/dahl-2006.pdf)) and evaluate the log-likelihood of the Gaussian mixture model using posterior samples.
 
-## Example 
+## Example
+
 Letting $j$ denote groups and $i$ denote observations within a group, we consider J = 3 groups with equal sample sizes $n_j = 100$ under a Gaussian mixture model having 4 true components.
 
-* True cluster means : $\phi = (−6, −2, 2, 6)$. 
+-   True cluster means : $\phi = (−6, −2, 2, 6)$.
 
-* Mixture weights : $\pi_1 = (0.5, 0.5, 0, 0)$, $\pi_2 = (0.25, 0.25, 0.25, 0.25)$ and $\pi_3 = (0, 0.1, 0.6, 0.3)$. 
+-   Mixture weights : $\pi_1 = (0.5, 0.5, 0, 0)$, $\pi_2 = (0.25, 0.25, 0.25, 0.25)$ and $\pi_3 = (0, 0.1, 0.6, 0.3)$.
 
-* Densities : $f_j(y) = \Sigma_{k=1}^4 \, \pi_{jk} \ \mathcal{N}(y\,;\phi_k, \tau^{-1})$, $y \in R$.
+-   Densities : $f_j(y) = \Sigma_{k=1}^4 \, \pi_{jk} \ \mathcal{N}(y\,;\phi_k, \tau^{-1})$, $y \in R$.
 
-* True cluster labels : $z_{ji} \sim \pi_j$
+-   True cluster labels : $z_{ji} \sim \pi_j$
 
-* Observations : $x_{ji} \sim \mathcal{N}(\phi_{z_{ji}}, \tau^{-1})$
+-   Observations : $x_{ji} \sim \mathcal{N}(\phi_{z_{ji}}, \tau^{-1})$
 
 **Other specifications** :
 
-* Prior on $\phi$ : $\mathcal{N}(\xi, \lambda^{-1})$, \ $\xi = 0$, $\lambda=1$.
+-   Prior on $\phi$ : $\mathcal{N}(\xi, \lambda^{-1})$, $\xi = 0$, $\lambda=1$.
 
-* Prior on $\alpha_0$ : Gamma$(\gamma, b_0)$, \ $\gamma = 1$, $b_0 = 0.1$.
+-   Prior on $\alpha_0$ : Gamma $(\gamma, b_0)$, $\gamma = 1$, $b_0 = 0.1$.
 
-* Truncation level : $L=10$.
+-   Truncation level : $L=10$.
 
 **Data generation** :
+```{r, include=FALSE, message=FALSE, warning=FALSE}
+set.seed(1234)
+```
+
+
 ```{r, message = FALSE, warning = FALSE}
 library(mcclust)
 source("BGS.R")
@@ -81,7 +85,8 @@ for(j in 1:J){
 }
 ```
 
-Specify the hyperparameters : 
+Specify the hyperparameters :
+
 ```{r, results='hide'}
 # Number of MCMC samples and Burn in period.
 M = 1000; M.burn = 500
@@ -99,6 +104,7 @@ out_BGS = blocked_gibbs(x = x, L.max = L.max, gam = G, phi.param = c(xi, lambda,
 ```
 
 Posterior estimates of cluster labels are obtained using Dahl's method.
+
 ```{r, message = FALSE, warning = FALSE}
 # get BGS clusters using Dahl's method
 Z.hat = getDahl(out_BGS)
@@ -127,7 +133,7 @@ themegg = theme(
 )
 ```
 
-**Plots showing the true and estimated cluster labels** : 
+**Plots showing the true and estimated cluster labels** :
 
 ```{r, warning=FALSE, message=FALSE}
 # data frame for plotting cluster labels
@@ -156,7 +162,8 @@ g3 = plot_clusters(3, clusters)
 ggarrange(g1$g.true, g1$g.hat, g2$g.true, g2$g.hat, g3$g.true, g3$g.hat, ncol=2, nrow = 3)
 ```
 
-The adjusted Rand index between the true and BGS cluster labels : 
+The adjusted Rand index between the true and BGS cluster labels :
+
 ```{r, message = FALSE, warning = FALSE}
 # Global adjusted Rand index
 ARI.global = mcclust::arandi(unlist(Z.hat), unlist(true.Z))
@@ -168,6 +175,7 @@ ARI
 ```
 
 We estimate the densities for each group.
+
 ```{r}
 # True density for each group
 true.density = matrix(NA, nrow = J, ncol = 100)
@@ -183,7 +191,7 @@ dens.BGS = lapply(1:M, function(m) out_BGS[[m]]$density)
 est.dens = Reduce("+", dens.BGS)/M
 ```
 
-**Plots showing the true and estimated densities for each group overlaid on the histograms of the observed data** : 
+**Plots showing the true and estimated densities for each group overlaid on the histograms of the observed data** :
 
 ```{r, warning=FALSE, message=FALSE}
 # data frames for plotting histograms and densities
