@@ -33,7 +33,7 @@ f_k.xji = function(xji, xi, lambda, tau, b, xbar_b){
 }
 
 # Function to get marginal prior of each observation x_jt
-# x_jt : observations corresponding to all customers table t in restaurant j.
+# x_jt : observations corresponding to all customers in table t of restaurant j.
 # xi : prior mean of phi
 # lambda : prior precision of phi
 # tau : common precision of the normal likelihood
@@ -47,7 +47,7 @@ f_k_new.xjt = function(xjt, xi, lambda, tau){
 }
 
 # Function to get conditional density of x_jt under mixture component k given all data items except x_jt
-# x_ji : observation corresponding to customer i in restaurant j.
+# x_jt : observations corresponding to all customers in table t of restaurant j.
 # xi : prior mean of phi
 # lambda : prior precision of phi
 # tau : common precision of the normal likelihood
@@ -66,7 +66,7 @@ f_k.xjt = function(xjt, xi, lambda, tau, d, xbar_d){
   return(res)
 }
 
-# Function to get unique dish indices Z_ji = k_jt_ji for all i,j.
+# Function to get unique dish indices Z_ji = k_{jt_ji} for all i,j.
 # k : list containing dish indices for each table of each restaurant
 # t: list containing table indices for each customer in each restaurant
 construct_Z = function(k, t){
@@ -80,7 +80,7 @@ construct_Z = function(k, t){
   return(Z)
 }
 
-# Function to get unique dish indices Z_ji = k_jt_ji for all i,j leaving out (j_,i_).
+# Function to get unique dish indices Z_ji = k_{jt_ji} for all i,j leaving out (j_,i_).
 # k : list containing dish indices for each table of each restaurant
 # t: list containing table indices for each customer in each restaurant
 # j_, i_ : indices that should be dropped
@@ -127,11 +127,12 @@ sample.t = function(x, k.list, t.list, alpha0, xi, lambda, tau, gam){
   t.out = t.list
   k.out = k.list
   
+  # vector storing the number of tables in each restaurant
   mj0 = lengths(k.list)
   
   for(j in 1:J){
     
-    Tj = mj0[j] # number of tables in the jth restaurant
+    Tj = mj0[j] # number of tables in restaurant j
     
     for(i in 1:n[j]){
       
@@ -159,6 +160,7 @@ sample.t = function(x, k.list, t.list, alpha0, xi, lambda, tau, gam){
         Tj = Tj - 1
       }
       
+      # get the unique dish indices for every customer, Z_ji = k_{jt_ji}
       Z = construct_Z_ji(j, i, k.out, t.out)
       Z_ji.vec = unlist(Z)
       
@@ -252,12 +254,15 @@ sample.k = function(x, k.list, t.list, alpha0, xi, lambda, tau, gam){
   J = length(x); K = max(unlist(k.list))
   
   k.out = k.list
+  
+  # vector storing the number of tables in each restaurant
   mj0 = lengths(k.list)
   n.tables = mj0
   
   for(j in 1:J){
     for(t in 1:n.tables[j]){
       
+      # get the unique dish indices for every customer, Z_ji = k_{jt_ji}
       Z = construct_Z(k.out, t.list)
       
       # remove dish corresponding to table t in restaurant j
@@ -334,7 +339,7 @@ sample.alpha0 = function(k.list, t.list, alpha0, a, b){
   p = n/(alpha0 + n)
   s = sapply(p, function(j) rbinom(1, size = 1, prob = j))
   
-  # update alpha0 
+  # update alpha0 given w and s
   shape_alpha0 = a + m - sum(s)
   rate_alpha0 = b - sum(log(w))
   samp.alpha0 = rgamma(1, shape = shape_alpha0, rate = rate_alpha0)
@@ -466,16 +471,19 @@ CRF_gibbs = function(x, y.grid, K.init, gam, a, b, xi, lambda, tau, Burn.in, M){
     T1 = Sys.time()
     
     # update table indices
-    res.t = sample.t(x = x, k.list = k.list, t.list = t.list, alpha0 = alpha0, xi = xi, lambda = lambda, tau = tau, gam = gam)
+    res.t = sample.t(x = x, k.list = k.list, t.list = t.list, alpha0 = alpha0, 
+                     xi = xi, lambda = lambda, tau = tau, gam = gam)
     
     k.list = res.t$k.list
     t.list = res.t$t.list
     
     # update dish indices
-    k.list = sample.k(x = x, k.list = k.list, t.list = t.list, alpha0 = alpha0, xi = xi, lambda = lambda, tau = tau, gam = gam)
+    k.list = sample.k(x = x, k.list = k.list, t.list = t.list, alpha0 = alpha0, 
+                      xi = xi, lambda = lambda, tau = tau, gam = gam)
     
     # update alpha0
-    alpha0 = sample.alpha0(k.list = k.list, t.list = t.list, alpha0 = alpha0, a = a, b = b)
+    alpha0 = sample.alpha0(k.list = k.list, t.list = t.list, alpha0 = alpha0, 
+                           a = a, b = b)
     
     # get global cluster allocations
     Z = construct_Z(k = k.list, t = t.list)
