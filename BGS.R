@@ -1,3 +1,7 @@
+# Code to implement our proposed blocked Gibbs (BGS) algorithm to sample from the 
+# posterior of HDP under a univariate conjugate Gaussian mixture model.
+
+# source functions to sample the unnormalized global weights using rejection sampler.
 source("rejectionsampler.R")
 
 # Function to draw samples from a dirichlet distribution.
@@ -37,6 +41,8 @@ samp.f_k = function(J, log.p_k, log_u, gam, L, b0){
     
     U = log(runif(1))
     
+    # accounting for cases when both log f_k(S) and log cover_density(S) is -\infty 
+    # where S is the obtained sample 
     if(is.na(Y)){
       cond = 5
     }
@@ -71,9 +77,11 @@ update_phi = function(Z, L, x, phi.param){
   # tau: precision of x_ji
   xi = phi.param[1]; lambda = phi.param[2]; tau = phi.param[3]
   
+  # posterior mean and standard deviation of phi
   mean_phi = ((n.group*xbar*tau) + xi*lambda)/((n.group*tau) + lambda)
   sd_phi = 1/ sqrt((n.group*tau) + lambda)
   
+  # sample phi from its prior for the unoccupied clusters
   mean_phi[n.group == 0] = xi
   sd_phi[n.group == 0] = 1/sqrt(lambda)
   
@@ -99,6 +107,8 @@ update_Z = function(Pi, x, phi, phi.param){
     tau = phi.param[3]
     F_j = sapply(seq_len(L), function(k) dnorm(x[[j]], mean = phi[k], sd = sqrt(1/tau), log = TRUE))
     
+    # Pi_j : matrix whose rows contain pi_j^{*}, 
+    # where \pi_{ji,k}^{*} \propto \pi_{jk} f(x_ji | \phi_k) 
     Pi_j = matrix(log(Pi[j, ]), ncol = L, nrow = n[j], byrow = TRUE) + F_j
     Pi_j = t(apply(Pi_j, 1, function(x) exp(x - max(x))))
     Pi_j = Pi_j/rowSums(Pi_j)
@@ -212,14 +222,13 @@ blocked_gibbs = function(x, L.max, gam, phi.param, b0, Burn.in, M, est.density =
     # update Z
     Z = update_Z(Pi = Pi, x = x, phi = phi, phi.param = phi.param)
     
-    #update phi
+    # update phi
     phi = update_phi(Z = Z, L = L.max, x = x, phi.param = phi.param)
     
-    #update Pi
-    # Pi = update_Pi(Z = Z, alpha0 = alpha0, Beta = Beta)
+    # update Pi
     Pi = update_Pi(Z = Z, t = t)
     
-    #update t and Beta 
+    # update t and Beta 
     res = update_Beta(Pi = Pi, gam = gam, b0 = b0, u = u)
     Beta = res$Beta
     sum_t = res$sum_t
@@ -232,9 +241,8 @@ blocked_gibbs = function(x, L.max, gam, phi.param, b0, Burn.in, M, est.density =
     T2 = Sys.time()
     Tdiff =  difftime(T2, T1, units = "secs")
     
-    # ordered phi's
+    # order the phi's in decreasing order of cluster occupancy
     n.group = sapply(seq_len(L.max), function(j) sum(unlist(Z)==j))
-    
     dat = data.frame(phi, n.group, ind = 1:L.max)
     dat = dat[order(-dat$n.group),]
     
