@@ -52,12 +52,14 @@ Gaussian mixture model having 4 true components.
 
 - True cluster means : $\phi = (−6, −2, 2, 6)$.
 
+- Common precision : $\tau = 1$.
+
 - Mixture weights : $\pi_1 = (0.5, 0.5, 0, 0)$,
   $\pi_2 = (0.25, 0.25, 0.25, 0.25)$ and $\pi_3 = (0, 0.1, 0.6, 0.3)$.
 
 - Densities :
-  $f_j(y) = \Sigma_{k=1}^4 \, \pi_{jk} \ \mathcal{N}(y\,;\phi_k, \tau^{-1})$,
-  $y \in R$.
+  $f_j(y) = \Sigma_{k=1}^4 \ \pi_{jk} \ \mathcal{N}(y \ ;\phi_k, \tau^{-1})$,
+  $\ y \in \mathbb{R}$.
 
 - True cluster labels : $z_{ji} \sim \pi_j$
 
@@ -123,7 +125,7 @@ y.grid = seq(xmin, xmax, length = 100)
 **Run the blocked Gibbs sampler** :
 
 ``` r
-# run the blocked gibbs sampler
+# run the blocked Gibbs sampler
 out_BGS = blocked_gibbs(x = x, L.max = L.max, gam = G, phi.param = c(xi, lambda, tau), 
                         b0 = B, Burn.in = M.burn, M = M, est.density = TRUE,y.grid = y.grid)
 ```
@@ -138,7 +140,8 @@ Z.hat = getDahl(out_BGS)
 **Plots showing the true and estimated cluster labels** :
 
 ``` r
-# all plots follow a pre-specified theme stored in "themegg"
+# all plots follow a pre-specified theme stored in "themegg", 
+# which can be found in the README.Rmd file.
 
 # data frame for plotting cluster labels
 clusters = lapply(seq_len(J), function(j) 
@@ -210,7 +213,8 @@ est.dens = Reduce("+", dens.BGS)/M
 on the histograms of the observed data** :
 
 ``` r
-# all plots follow a pre-specified theme stored in "themegg"
+# all plots follow a pre-specified theme stored in "themegg",
+# which can be found in the README.Rmd file.
 
 # data frames for plotting histograms and densities
 dat_hist = data.frame(x = unlist(x), group = rep(c("Group 1", "Group 2", "Group 3"), each = n[1]))
