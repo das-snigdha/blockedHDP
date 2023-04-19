@@ -1,3 +1,7 @@
+# Code to sample from the tilted gamma density, 
+# f_k(x) \propto (1/\Gamma(x))^J x^{A-1} e^{-B_k x}, x > 0.
+# using our proposed rejection sampler
+
 # function to draw n random samples from a truncated gamma distribution
 # shape = A, rate = B
 # truncation region = (u0, v0)
@@ -6,6 +10,7 @@ rtrunc.gamma = function(n, A, B, u0, v0){
   F.u0 = pgamma(u0, shape = A, rate = B)
   F.v0 = pgamma(v0, shape = A, rate = B)
   
+  # sample using modified inverse cdf technique for truncated distributions
   U = runif(n, min = F.u0, max = F.v0)
   X = qgamma(U, shape = A, rate = B)
   
@@ -17,6 +22,7 @@ rtrunc.gamma = function(n, A, B, u0, v0){
 # truncation region = (u0, v0)
 rtrunc.exp = function(n, lambda, u0, v0){
   
+  # sample using inverse cdf technique
   U = runif(n)
   
   Y = U*exp(lambda*v0) + (1-U)*exp(lambda*u0)
@@ -80,9 +86,13 @@ tangent.eq = function(t, m, a, lambda){
 # Function to draw a sample from the resulting cover density
 samp.mixture = function(J, A, B){
   
+  # sampler for positive B_k
   if(B > 0){
     
+    # get the mode of f_k
     m0 = mode.f_k(J = J, A = A, B = B)
+    
+    # select the points m1 and m2 at the left and right of the mode
     m1 = m0/2
     m2 = m0 + (1.5 - m0)*0.5
     
@@ -159,13 +169,16 @@ samp.mixture = function(J, A, B){
                 "lambda0" = 0, "lambda1" = lambda1, "lambda2" = lambda2)
     
   }
-  else{
+  else{   # sampler for negative B_k
     
     M = exp(((0.01 -B)/J)+1)
+    # get the mode of f_k
     m0 = mode.f_k(J = J, A = A, B = B, M = M)
     
     if(m0 < M){
       
+      # select the points m1 and m2 at the left and right of the mode
+      # if the mode lies in (0, M)
       m1 = m0/2
       m2 = m0 + (M - m0)*0.5
       
@@ -243,6 +256,9 @@ samp.mixture = function(J, A, B){
       
     }
     else{
+      
+      # if the mode does not lie in (0, M)
+      # select three equidistant points in (0,M)
       m1 = M/4; m0 = M/2; m2 = 3*M/4
       
       lambda1 = log.f_k.prime(m1, J, A, B)
@@ -327,6 +343,7 @@ samp.mixture = function(J, A, B){
 }
 
 # log of the cover density
+# dist : list containing the parameters characterizing the cover density
 log.mixture_dens = function(t, J, A, B, dist){
   
   n = length(t)
