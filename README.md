@@ -1,9 +1,10 @@
 Blocked Gibbs sampler for hierarchical Dirichlet processes
 ================
 
-Implementation of sampling algorithm proposed in the paper, Das, S.,
-Niu, Y., Ni, Y., Mallick, B.K., and Pati, D. (2023+) “Blocked Gibbs
-sampler for hierarchical Dirichlet processes”.
+Implementation of sampling algorithm proposed in the paper [Das, S.,
+Niu, Y., Ni, Y., Mallick, B.K., and Pati, D. (2023+) Blocked Gibbs
+sampler for hierarchical Dirichlet
+processes](https://arxiv.org/abs/2304.09945).
 
 ## Overview
 
@@ -47,7 +48,7 @@ have good mixing.
 ## Example
 
 Letting $j$ denote groups and $i$ denote observations within a group, we
-consider J = 3 groups with equal sample sizes $n_j = 100$ under a
+consider $J = 3$ groups with equal sample sizes $n_j = 100$ under a
 Gaussian mixture model having 4 true components.
 
 - True cluster means : $\phi = (−6, −2, 2, 6)$.
