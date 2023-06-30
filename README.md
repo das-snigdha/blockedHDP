@@ -76,12 +76,12 @@ Gaussian mixture model having 4 true components.
 
 - Truncation level : $L=10$.
 
-- Knot points for the rejection sampler : $2N+1$, with $N = 1$.
+- Knot points for the rejection sampler : $2N+2$, with $N = 1$.
 
 **Data generation** :
 
 ``` r
-library(mcclust); library(tidyverse) ; library(ggpubr)
+library(mcclust); library(tidyverse); library(ggpubr)
 source("BGS.R")
 source("postestimates.R")
 
