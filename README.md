@@ -76,6 +76,8 @@ Gaussian mixture model having 4 true components.
 
 - Truncation level : $L=10$.
 
+- Knot points for the rejection sampler : $2N+1$, with $N = 1$.
+
 **Data generation** :
 
 ``` r
@@ -101,7 +103,7 @@ true.Z = vector(mode = "list", length = J)
 # x[[j]] denotes observations in the jth group
 x = vector(mode = "list", length = J)
 
-set.seed(20)
+set.seed(25)
 for(j in 1:J){
   true.Z[[j]] = sample(1:L, size = n[j], prob = Pi.true[j, ], replace = TRUE)
   x[[j]] = sapply(1:n[j], function(i) 
@@ -127,8 +129,8 @@ y.grid = seq(xmin, xmax, length = 100)
 
 ``` r
 # run the blocked Gibbs sampler
-out_BGS = blocked_gibbs(x = x, L.max = L.max, gam = G, phi.param = c(xi, lambda, tau), 
-                        b0 = B, Burn.in = M.burn, M = M, est.density = TRUE,y.grid = y.grid)
+out_BGS = blocked_gibbs(x = x, L.max = L.max, gam = G, phi.param = c(xi, lambda, tau), b0 = B, 
+                        N = 1, Burn.in = M.burn, M = M, est.density = TRUE,y.grid = y.grid)
 ```
 
 Posterior estimates of cluster labels are obtained using Dahl’s method.
@@ -182,7 +184,7 @@ ARI.global = mcclust::arandi(unlist(Z.hat), unlist(true.Z))
 ARI.global
 ```
 
-    ## [1] 0.9453478
+    ## [1] 0.9344861
 
 ``` r
 # Adjusted Rand indices corresponding to group specific cluster labels
@@ -190,7 +192,7 @@ ARI = sapply(seq_len(J), function(j) mcclust::arandi(Z.hat[[j]], true.Z[[j]]))
 ARI
 ```
 
-    ## [1] 0.9830315 0.9229645 0.8925251
+    ## [1] 0.9600000 0.9199816 0.8611180
 
 Densities corresponding to each group is estimated using posterior
 samples.

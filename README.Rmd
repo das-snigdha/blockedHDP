@@ -52,9 +52,11 @@ Letting $j$ denote groups and $i$ denote observations within a group, we conside
 
 -   Truncation level : $L=10$.
 
+-   Knot points for the rejection sampler : $2N+2$, with $N = 1$.
+
 **Data generation** :
 ```{r, message = FALSE, warning = FALSE}
-library(mcclust); library(tidyverse) ; library(ggpubr)
+library(mcclust); library(tidyverse); library(ggpubr)
 source("BGS.R")
 source("postestimates.R")
 
@@ -76,7 +78,7 @@ true.Z = vector(mode = "list", length = J)
 # x[[j]] denotes observations in the jth group
 x = vector(mode = "list", length = J)
 
-set.seed(20)
+set.seed(25)
 for(j in 1:J){
   true.Z[[j]] = sample(1:L, size = n[j], prob = Pi.true[j, ], replace = TRUE)
   x[[j]] = sapply(1:n[j], function(i) 
@@ -102,8 +104,8 @@ y.grid = seq(xmin, xmax, length = 100)
 
 ```{r, results='hide'}
 # run the blocked Gibbs sampler
-out_BGS = blocked_gibbs(x = x, L.max = L.max, gam = G, phi.param = c(xi, lambda, tau), 
-                        b0 = B, Burn.in = M.burn, M = M, est.density = TRUE,y.grid = y.grid)
+out_BGS = blocked_gibbs(x = x, L.max = L.max, gam = G, phi.param = c(xi, lambda, tau), b0 = B, 
+                        N = 1, Burn.in = M.burn, M = M, est.density = TRUE,y.grid = y.grid)
 ```
 
 Posterior estimates of cluster labels are obtained using Dahl's method.
