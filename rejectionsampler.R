@@ -2,21 +2,6 @@
 # f_k(x) \propto (1/\Gamma(x))^J x^{A-1} e^{-B_k x}, x > 0.
 # using our proposed rejection sampler
 
-# function to draw n random samples from a truncated gamma distribution
-# shape = A, rate = B
-# truncation region = (u0, v0)
-rtrunc.gamma = function(n, A, B, u0, v0){
-  
-  F.u0 = pgamma(u0, shape = A, rate = B)
-  F.v0 = pgamma(v0, shape = A, rate = B)
-  
-  # sample using modified inverse cdf technique for truncated distributions
-  U = runif(n, min = F.u0, max = F.v0)
-  X = qgamma(U, shape = A, rate = B)
-  
-  return(X)
-}
-
 # function to draw n random samples from a truncated exponential distribution
 # parameter = lambda
 # truncation region = (u0, v0)
@@ -25,8 +10,13 @@ rtrunc.exp = function(n, lambda, u0, v0){
   # sample using inverse cdf technique
   U = runif(n)
   
-  Y = U*exp(lambda*v0) + (1-U)*exp(lambda*u0)
-  X = (1/lambda)*log(Y)
+  if(v0 == Inf){
+    X = u0 + (1/lambda)*log(1- U)
+  }
+  else{
+    Y = exp(-lambda*(v0 -u0))
+    X = v0 + (1/lambda)*log(Y + U*(1-Y))
+  }
   
   return(X)
 }
@@ -34,10 +24,10 @@ rtrunc.exp = function(n, lambda, u0, v0){
 # log density, f_k(.)
 # We use independent samples from density, f_k to get samples of beta, top level weight parameters
 log.f_k = function(t, J, A, B){
-  if(t == Inf){
-    res = -Inf
-  }
-  else res = -(J*lgamma(t)) - (B * t) + ((A-1)*log(t))
+  
+  res = -(J*lgamma(t)) - (B * t) + ((A-1)*log(t))
+  res[which(t==Inf)] = -Inf
+  
   return(res)
 }
 
@@ -49,31 +39,12 @@ log.f_k.prime = function(t, J, A, B){
 }
 
 # Function to find the mode of density f_k
-mode.f_k = function(J, A, B, M = 1.5){
+mode.f_k = function(J, A, B, M){
   h = function(x){
     return(log.f_k(x, J = J, A = A, B = B))
   }
   m = optimise(h, interval = c(0,M), maximum = TRUE, tol = 0.000001)$maximum
   return(m)
-}
-
-# log of un-normalized gamma density for the cover when B>0
-log.g_k1 = function(t, J, A, B){
-  D1 = digamma(2)
-  B1 = (J*D1) + B
-  
-  res = (2*J*D1) - (t*B1) + ((A-1)* log(t))
-  return(res)
-}
-
-# log of un-normalized gamma density for the cover when B<0
-log.g_k2 = function(t, J, A, B, M){
-  gam0 = - digamma(1)
-  k1 = (J * gam0*log(M)) - J
-  k2 = B + (J*log(M)) - J
-  
-  res = k1 - (t*k2) + (A-1)*log(t)
-  return(res)
 }
 
 # equation of tangent line of the log density at point "m"
@@ -83,300 +54,176 @@ tangent.eq = function(t, m, a, lambda){
   return(res)
 }
 
-# Function to draw a sample from the resulting cover density
-samp.mixture = function(J, A, B){
+
+# Function to get the points of intersection of the tangent lines at given knot points
+# m: vector of knot points
+# a : log-density at knot points, m
+# lambda : derivative of log-density at knot points, m
+intersection.points = function(a, lambda, m){
+  K0 = length(m) - 1
+  res = sapply(1:K0, function(i) 
+    (a[i+1] - a[i] + lambda[i]*m[i] - lambda[i+1]*m[i+1])/(lambda[i] - lambda[i+1]))
   
-  # sampler for positive B_k
+  return(res)
+}
+
+# Function to calculate the ratio of normalizing constants of the densities
+# done to stabilize the calculation of the weights of the mixture density, g_k
+# C_g_{k,i} / C_g_{k,j} for any supplied i > j
+C.ratio = function(i, j, N, J, a, lambda, m, q){
+  if(i == (2*N+2)){
+    
+    s_i = sign(lambda[i]); s_j = sign(lambda[j])
+    
+    X1 = a[i] - a[j] - (m[i] - q[i])*lambda[i] + (m[j] - q[j])*lambda[j]
+    
+    X2 = log(s_j*lambda[j]) - log(s_i*lambda[i])
+    
+    X3 = - log(s_j*(exp((q[j+1] - q[j])*lambda[j]) - 1))
+    
+    res = exp(X1 + X2 + X3)
+  }
+  else if(i == (N+1)){
+    
+    s_j = sign(lambda[j])
+    
+    X1 = a[i] - a[j] + (m[j] - q[j])*lambda[j] + log(q[i+1] - q[i])
+    
+    X2 = log(s_j*lambda[j])
+    
+    X3 = - log(s_j*(exp((q[j+1] - q[j])*lambda[j]) - 1))
+    
+    res = exp(X1 + X2 + X3)
+  }
+  else if(j == (N+1)){
+    
+    s_i = sign(lambda[i])
+    
+    X1 = a[i] - a[j] - (m[i] - q[i])*lambda[i] - log(q[j+1] - q[j])
+    
+    X2 = - log(s_i*lambda[i])
+    
+    X3 = log(s_i*(exp((q[i+1] - q[i])*lambda[i]) - 1))
+    
+    res = exp(X1 + X2 + X3)
+  }
+  else {
+    
+    s_i = sign(lambda[i]); s_j = sign(lambda[j])
+    
+    X1 = a[i] - a[j] - (m[i] - q[i])*lambda[i] + (m[j] - q[j])*lambda[j]
+    
+    X2 = log(s_j*lambda[j]) - log(s_i*lambda[i])
+    
+    X3 = log(s_i*(exp((q[i+1] - q[i])*lambda[i]) - 1)) - 
+      log(s_j*(exp((q[j+1] - q[j])*lambda[j]) - 1))
+    
+    res = exp(X1 + X2 + X3)
+  }
+  
+  if(is.na(res)){
+    res = Inf
+  }
+  return(res)
+}
+
+# Function to calculate the weights and parameters of the mixture density
+param.mixture = function(J, A, B, N){
+  
+  K = 2*N + 1
+  m = rep(NA, K+1); q = rep(NA, K+1)
+  
   if(B > 0){
+    # central knot point is the mode
+    m[N+1] = mode.f_k(J = J, A = A, B = B, M = 1.5)
     
-    # get the mode of f_k
-    m0 = mode.f_k(J = J, A = A, B = B)
+    # last knot point
+    m[K+1] = m[N+1]+1.5
     
-    # select the points m1 and m2 at the left and right of the mode
-    m1 = m0/2
-    m2 = m0 + (1.5 - m0)*0.5
+  }else {
+    M = exp(1 - (B/J))
+    # central knot point is the mode
+    m[N+1] = mode.f_k(J = J, A = A, B = B, M = M)
     
-    lambda1 = log.f_k.prime(m1, J, A, B)
-    lambda2 = log.f_k.prime(m2, J, A, B)
-    
-    a1 = log.f_k(m1, J, A, B); a2 = log.f_k(m2, J, A, B); a0 = log.f_k(m0, J, A, B)
-    
-    # points of intersection of the tangent lines
-    z1 = (a0 - a1 + m1*lambda1)/lambda1
-    z2 = (a0 - a2 + m2*lambda2)/lambda2
-    z3 = 1.5
-    
-    D1 = digamma(2)
-    B1 = (J*D1) + B
-    c0 = 2*J*D1
-    
-    # Calculate the ratio of the normalizing constants of the four densities 
-    C1byC2 = exp(log(1 - exp(-z1 * lambda1)) - log(lambda1) - log(z2 - z1))
-    
-    C3byC2 = exp(log( 1 - exp((z3-z2)*lambda2) ) - log(-lambda2) - log(z2 - z1))
-    
-    C4byC2 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) + 
-                   lgamma(A) - (A*log(B1)) + c0 - a0 - log(z2 - z1))
-    
-    C3byC1 = exp(log(lambda1) - log(-lambda2) + log(1 - exp((z3-z2)*lambda2) ) - 
-                   log(1 - exp(-z1 * lambda1)))
-    
-    C4byC1 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) +
-                   lgamma(A) - (A*log(B1)) + c0 - a0 + log(lambda1) - 
-                   log(1 - exp(-z1 * lambda1)))
-    
-    C4byC3 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) +
-                   lgamma(A) - (A*log(B1)) + c0 - a0 + log(-lambda2) - 
-                   log( 1 - exp((z3-z2)*lambda2) ))
-    
-    # calculate the weights of the mixture density
-    # w1 = C1/C ; w2 = C2/C;  w3 = C3/C
-    
-    # w1 = C1/(C1+C2+C3+C4) = 1/(1 + C2/C1 + C3/C1 + C4/C1)
-    w1 = (1/C1byC2) + C3byC1 + C4byC1
-    w1 = 1/(1+w1)
-    
-    # w2 = C2/(C1+C2+C3+C4) = 1/(1 + C1/C2 + C3/C2 + C4/C2)
-    w2 = C1byC2 + C3byC2 + C4byC2
-    w2 = 1/(1+w2)
-    
-    # w3 = C3/(C1+C2+C3+C4) = 1/(1 + C1/C3 + C2/C3 + C4/C3)
-    w3 = (1/C3byC1) + (1/C3byC2) + C4byC3
-    w3 = 1/(1+w3)
-    
-    # sample from the mixture density
-    U = runif(1)
-    
-    if(U < w1){
-      # sample from g_k1
-      S = rtrunc.exp(n = 1, lambda = lambda1, u0 = 0, v0 = z1)
-    }
-    else if(U < (w1+w2)){
-      # sample from g_k2
-      S = runif(n = 1, min = z1, max = z2)
-    }
-    else if(U < (w1+w2+w3)){
-      # sample from g_k3
-      S = rtrunc.exp(n = 1, lambda = lambda2, u0 = z2, v0 = 1.5)
-    }
-    else{
-      # sample from g_k4
-      S = rtrunc.gamma(n = 1, A = A, B = B1, u0 = 1.5, v0 = Inf)
-    }
-    
-    dist = list("M" = 1.5, "m0" = m0, "m1" = m1, "m2" = m2, 
-                "z1" = z1, "z2" = z2, "a0" = a0, "a1" = a1, "a2" = a2, 
-                "lambda0" = 0, "lambda1" = lambda1, "lambda2" = lambda2)
-    
-  }
-  else{   # sampler for negative B_k
-    
-    M = exp(((0.01 -B)/J)+1)
-    # get the mode of f_k
-    m0 = mode.f_k(J = J, A = A, B = B, M = M)
-    
-    if(m0 < M){
-      
-      # select the points m1 and m2 at the left and right of the mode
-      # if the mode lies in (0, M)
-      m1 = m0/2
-      m2 = m0 + (M - m0)*0.5
-      
-      lambda1 = log.f_k.prime(m1, J, A, B)
-      lambda2 = log.f_k.prime(m2, J, A, B)
-      
-      a1 = log.f_k(m1, J, A, B); a2 = log.f_k(m2, J, A, B); a0 = log.f_k(m0, J, A, B)
-      
-      # points of intersection of the tangent lines
-      z1 = (a0 - a1 + m1*lambda1)/lambda1
-      z2 = (a0 - a2 + m2*lambda2)/lambda2
-      z3 = M
-      
-      gam0 = - digamma(1)
-      B1 = B + (J*log(M)) - J
-      c0 = (J * gam0*log(M)) - J
-      
-      # Calculate the ratio of the normalizing constants of the four densities 
-      C1byC2 = exp(log(1 - exp(-z1 * lambda1)) - log(lambda1) - log(z2 - z1))
-      
-      C3byC2 = exp(log( 1 - exp((z3-z2)*lambda2) ) - log(-lambda2) - log(z2 - z1))
-      
-      C4byC2 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) + 
-                     lgamma(A) - (A*log(B1)) + c0 - a0 - log(z2 - z1))
-      
-      C3byC1 = exp(log(lambda1) - log(-lambda2) + log(1 - exp((z3-z2)*lambda2) ) - 
-                     log(1 - exp(-z1 * lambda1)))
-      
-      C4byC1 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) +
-                     lgamma(A) - (A*log(B1)) + c0 - a0 + log(lambda1) - 
-                     log(1 - exp(-z1 * lambda1)))
-      
-      C4byC3 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) +
-                     lgamma(A) - (A*log(B1)) + c0 - a0 + log(-lambda2) - 
-                     log( 1 - exp((z3-z2)*lambda2) ))
-      
-      # calculate the weights of the mixture density
-      # w1 = C1/C ; w2 = C2/C;  w3 = C3/C
-      
-      # w1 = C1/(C1+C2+C3+C4) = 1/(1 + C2/C1 + C3/C1 + C4/C1)
-      w1 = (1/C1byC2) + C3byC1 + C4byC1
-      w1 = 1/(1+w1)
-      
-      # w2 = C2/(C1+C2+C3+C4) = 1/(1 + C1/C2 + C3/C2 + C4/C2)
-      w2 = C1byC2 + C3byC2 + C4byC2
-      w2 = 1/(1+w2)
-      
-      # w3 = C3/(C1+C2+C3+C4) = 1/(1 + C1/C3 + C2/C3 + C4/C3)
-      w3 = (1/C3byC1) + (1/C3byC2) + C4byC3
-      w3 = 1/(1+w3)
-      
-      # sample from the mixture density
-      U = runif(1)
-      
-      if(U < w1){
-        # sample from g_k1
-        S = rtrunc.exp(n = 1, lambda = lambda1, u0 = 0, v0 = z1)
-      }
-      else if(U < (w1+w2)){
-        # sample from g_k2
-        S = runif(n = 1, min = z1, max = z2)
-      }
-      else if(U < (w1+w2+w3)){
-        # sample from g_k3
-        S = rtrunc.exp(n = 1, lambda = lambda2, u0 = z2, v0 = M)
-      }
-      else{
-        # sample from g_k4
-        S = rtrunc.gamma(n = 1, A = A, B = B1, u0 = M, v0 = Inf)
-      }
-      
-      dist = list("M" = M, "m0" = m0, "m1" = m1, "m2" = m2, 
-                  "z1" = z1, "z2" = z2, "a0" = a0, "a1" = a1, "a2" = a2, 
-                  "lambda0" = 0, "lambda1" = lambda1, "lambda2" = lambda2)
-      
-    }
-    else{
-      
-      # if the mode does not lie in (0, M)
-      # select three equidistant points in (0,M)
-      m1 = M/4; m0 = M/2; m2 = 3*M/4
-      
-      lambda1 = log.f_k.prime(m1, J, A, B)
-      lambda0 = log.f_k.prime(m0, J, A, B)
-      lambda2 = log.f_k.prime(m2, J, A, B)
-      
-      a1 = log.f_k(m1, J, A, B); a2 = log.f_k(m2, J, A, B); a0 = log.f_k(m0, J, A, B)
-      
-      # points of intersection of the tangent lines
-      z1 = (a0 - a1 + m1*lambda1 - m0*lambda0)/(lambda1 - lambda0)
-      z2 = (a0 - a2 + m2*lambda2 - m0*lambda0)/(lambda2 - lambda0)
-      z3 = M
-      
-      gam0 = - digamma(1)
-      B1 = B + (J*log(M)) - J
-      c0 = (J * gam0*log(M)) - J
-      
-      # Calculate the ratio of the normalizing constants of the four densities 
-      C1byC2 = exp(log(1 - exp(-z1 * lambda1)) + log(lambda0) - log(lambda1) - ((z2-z1)*lambda0))
-      
-      C3byC2 = exp(log( 1 - exp(-(z3-z2)*lambda2) ) - log(1 - exp(-(z2-z1)*lambda0)) +
-                     (z3-z2)*lambda2 + log(lambda0) - log(lambda2))
-      
-      C4byC2 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) + 
-                     lgamma(A) - (A*log(B1)) + c0 - a0 - (z2 - m0)*lambda0 -
-                     log(1- exp(-(z2-z1)*lambda0)))
-      
-      C3byC1 = exp(log(lambda1) - log(lambda2) + log(1 - exp(-(z3-z2)*lambda2) ) - 
-                     log(1 - exp(-z1 * lambda1)) +
-                     (z2-z1)*lambda0 + (z3 - z2)*lambda2)
-      
-      C4byC1 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) +
-                     lgamma(A) - (A*log(B1)) + c0 - a0 - (z1 - m0)*lambda0 + log(lambda1) - 
-                     log(1 - exp(-z1 * lambda1)))
-      
-      C4byC3 = exp(pgamma(z3, shape = A, rate = B1, log.p = TRUE, lower.tail = FALSE) +
-                     lgamma(A) - (A*log(B1)) + c0 - a0 - (z2 - m0)*lambda0 - (z3-z2)*lambda2 +
-                     log(lambda2) - log( 1 - exp(-(z3-z2)*lambda2) ))
-      
-      # calculate the weights of the mixture density
-      # w1 = C1/C ; w2 = C2/C;  w3 = C3/C
-      
-      # w1 = C1/(C1+C2+C3+C4) = 1/(1 + C2/C1 + C3/C1 + C4/C1)
-      w1 = (1/C1byC2) + C3byC1 + C4byC1
-      w1 = 1/(1+w1)
-      
-      # w2 = C2/(C1+C2+C3+C4) = 1/(1 + C1/C2 + C3/C2 + C4/C2)
-      w2 = C1byC2 + C3byC2 + C4byC2
-      w2 = 1/(1+w2)
-      
-      # w3 = C3/(C1+C2+C3+C4) = 1/(1 + C1/C3 + C2/C3 + C4/C3)
-      w3 = (1/C3byC1) + (1/C3byC2) + C4byC3
-      w3 = 1/(1+w3)
-      
-      # sample from the mixture density
-      U = runif(1)
-      
-      if(U < w1){
-        # sample from g_k1
-        S = rtrunc.exp(n = 1, lambda = lambda1, u0 = 0, v0 = z1)
-      }
-      else if(U < (w1+w2)){
-        # sample from g_k2
-        S = rtrunc.exp(n = 1, lambda = lambda0, u0 = z1, v0 = z2)
-      }
-      else if(U < (w1+w2+w3)){
-        # sample from g_k3
-        S = rtrunc.exp(n = 1, lambda = lambda2, u0 = z2, v0 = M)
-      }
-      else{
-        # sample from g_k4
-        S = rtrunc.gamma(n = 1, A = A, B = B1, u0 = M, v0 = Inf)
-      }
-      
-      dist = list("M" = M, "m0" = m0, "m1" = m1, "m2" = m2, 
-                  "z1" = z1, "z2" = z2, "a0" = a0, "a1" = a1, "a2" = a2, 
-                  "lambda0" = lambda0, "lambda1" = lambda1, "lambda2" = lambda2)
-    }
+    # central knot point is the mode
+    m[K+1] = M
   }
   
-  return(list("sample" = S, "dist" = dist))
+  # first and last knot points
+  m[1] = m[N+1]/2; m[K] = (m[N+1]+m[K+1])/2
+  
+  # (N-1) knot points to the left of the mode
+  m[2:N] = seq(m[1], m[N+1], length = (N+1))[2:N]
+  
+  # (N-1) knot points to the right of the mode
+  m[(N+2):(2*N)] = seq(m[N+1], m[K], length = (N+1))[2:N]
+  
+  # derivative of log-density at vector of knot points, m
+  lambda = log.f_k.prime(m, J, A, B)
+  
+  # log-density at vector of knot points, m
+  a = log.f_k(m, J, A, B)
+  
+  q[1] = 0;
+  # points of intersection of the tangent lines
+  q[2:(K+1)] = intersection.points(a = a, lambda = lambda, m = m)
+  
+  
+  # get the ratio of the normalizing constants of the piecewise covers
+  i_vec = rep((K+1):2, K:1)
+  j_vec = unlist(sapply(K:1, function(k) seq(1, k, 1)))
+  
+  C.ratio.vec = sapply(1:length(i_vec), function(k) 
+    C.ratio(i = i_vec[k], j = j_vec[k], N, J, a, lambda, m, q))
+  
+  C.ratio.list = lapply(1:K, function(k) C.ratio.vec[j_vec == k])
+  
+  C.ratio.inv.list = lapply(2:(K+1), function(k) 1/C.ratio.vec[i_vec == k])
+  
+  # weights of the mixture density
+  weights = rep(NA, K)
+  weights[1] = 1 / (1 + sum(C.ratio.list[[1]]))
+  weights[2:K] = sapply(2:K, function(k) 
+    1/(1 + sum(C.ratio.list[[k]]) + sum(C.ratio.inv.list[[k-1]] )))
+  
+  return(list(weights = weights, m = m, a = a, lambda = lambda, q = q))
+}
+
+
+# Function to draw a sample from the resulting mixture density
+# weights : weights of the mixture density
+# lambda : parameter of the exponential densities in the cover
+# q : points of intersection of the tangent lines
+samp.mixture = function(weights, lambda, q){
+  
+  K0 = length(weights)
+  cum.wts = cumsum(weights)
+  U = runif(1)
+  
+  pos.U = which(sort(c(cum.wts, U)) == U)
+  if(pos.U <= K0){
+    S = rtrunc.exp(n = 1, lambda = lambda[pos.U], u0 = q[pos.U], v0 = q[pos.U+1])
+  }else 
+    S = rtrunc.exp(n = 1, lambda = lambda[pos.U], u0 = q[K0+1], v0 = Inf)
+  
+  return(S)
+  
 }
 
 # log of the cover density
-# dist : list containing the parameters characterizing the cover density
-log.mixture_dens = function(t, J, A, B, dist){
+# m : vector of knot points
+# a : log-density at the knot points
+# lambda : parameter of the exponential densities in the cover
+# q : points of intersection of the tangent lines
+log.mixture_dens = function(t, m, a, lambda, q){
   
-  n = length(t)
-  res = rep(0, n)
-  
-  for(i in 1:n){
-    
-    if(t[i] == Inf){
-      res[i] = -Inf
-    }
-    else{
-      if(t[i] >=0 && t[i] < dist$z1){
-        res[i] =  tangent.eq(t = t[i], m = dist$m1, a = dist$a1, lambda = dist$lambda1) 
-      }
-      else if(t[i] >= dist$z1 && t[i] < dist$z2){
-        res[i] =  tangent.eq(t = t[i], m = dist$m0, a = dist$a0, lambda = dist$lambda0) 
-      }
-      else if(t[i] >= dist$z2 && t[i] < dist$M){
-        res[i] =  tangent.eq(t = t[i], m = dist$m2, a = dist$a2, lambda = dist$lambda2) 
-      }
-      else{
-        
-        if(B > 0){
-          res[i] = log.g_k1(t = t[i], J = J, A = A, B = B) 
-        }
-        else{
-          res[i] = log.g_k2(t = t[i], J = J, A = A, B = B, M = dist$M) 
-        }
-        
-      }
-    }
-    
-    
+  if(t == Inf){
+    res = -Inf
   }
+  else{
+    pos.t = which(sort(c(q, t)) == t)
+    res = tangent.eq(t = t, m = m[pos.t-1], a = a[pos.t-1], lambda = lambda[pos.t-1]) 
+  }
+  
   return(res)
 }
