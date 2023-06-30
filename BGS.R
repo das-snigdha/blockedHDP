@@ -20,23 +20,23 @@ rdirich = function(alpha) {
 # b0 : rate parameter of prior gamma distribution of \alpha_0
 # gam : concentration parameter of base DP 
 # L : max number of clusters
-samp.f_k = function(J, log.p_k, log_u, gam, L, b0){
+samp.f_k = function(N, J, log.p_k, log_u, gam, L, b0){
   
   # parameters of target density
   A = gam/L
   B = b0 - log.p_k - log_u
   
+  # parameters of the cover density
+  distr = param.mixture(J = J, A = A, B = B, N = N)
+  
   cond = 5
   while(cond > 0){
     # draw a sample from the mixture density
-    res = samp.mixture(J = J, A = A, B = B)
-    
-    S = res$sample
-    res.dist = res$dist
+    S = samp.mixture(weights = distr$weights, lambda = distr$lambda, q = distr$q)
     
     # check for acceptance / rejection
-    Y1 = log.f_k(S, J = J, A = A, B = B)
-    Y2 = log.mixture_dens(S, J = J, A = A, B = B, dist = res.dist)
+    Y1 = log.f_k(t = S, J = J, A = A, B = B)
+    Y2 = log.mixture_dens(t = S, m = distr$m, a = distr$a, lambda = distr$lambda, q = distr$q)
     Y = Y1 - Y2
     
     U = log(runif(1))
@@ -160,13 +160,14 @@ update_Pi = function(Z, t){
 # gam : concentration parameter of base DP
 # Pi : JxL matrix where Pi[j, ] denotes the weight parameter for the jth population.
 # u = (u_1, u_2, \ldots, u_J) : vector of augmented Gamma random variables
-update_Beta = function(Pi, gam, b0, u){
+update_Beta = function(N, Pi, gam, b0, u){
   
   log_u = sum(log(u))
   L = ncol(Pi); J = nrow(Pi); log.p = colSums(log(Pi))
   
   # draw t_k from f_k(.), k = 1, 2,..., L.
-  t = sapply(log.p, function(p) samp.f_k(J = J, log.p_k = p, log_u = log_u, gam = gam, L = L, b0 = b0) )
+  t = sapply(log.p, function(p) samp.f_k(N = N, J = J, log.p_k = p, 
+                                         log_u = log_u, gam = gam, L = L, b0 = b0) )
   sum_t = sum(t)
   
   # set \beta_k = t_k / \sum_k (t_k)
@@ -193,12 +194,13 @@ update_u = function(sum_t, J){
 # gam : concentration parameter of global DP
 # phi.param : parameters specifying the prior distribution of \phi
 # b0 : shared concentration parameter has a gamma prior with shape = gam and rate = b0
-# tau : tuning parameter to control the MH acceptance rate while sampling \alpha_0
+# N : Integer to get the number of knot points (= 2N+2) for the rejection sampler, default value is 1.
 # Burn.in : Burn in period of the MCMC chain
 # M : number of MCMC samples required
 # est.density : TRUE/FALSE indicating whether the density needs to be estimated
 # y.grid : grid points for estimating the density of the populations, if est.density  = TRUE
-blocked_gibbs = function(x, L.max, gam, phi.param, b0, Burn.in, M, est.density = FALSE, y.grid = NULL){
+blocked_gibbs = function(x, L.max, gam, phi.param, b0, N = 1,
+                         Burn.in, M, est.density = FALSE, y.grid = NULL){
   
   J = length(x)
   
@@ -229,7 +231,7 @@ blocked_gibbs = function(x, L.max, gam, phi.param, b0, Burn.in, M, est.density =
     Pi = update_Pi(Z = Z, t = t)
     
     # update t and Beta 
-    res = update_Beta(Pi = Pi, gam = gam, b0 = b0, u = u)
+    res = update_Beta(N = N, Pi = Pi, gam = gam, b0 = b0, u = u)
     Beta = res$Beta
     sum_t = res$sum_t
     t = res$t
