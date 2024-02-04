@@ -26,30 +26,39 @@ samp.f_k = function(N, J, log.p_k, log_u, gam, L, b0){
   A = gam/L
   B = b0 - log.p_k - log_u
   
-  # parameters of the cover density
-  distr = param.mixture(J = J, A = A, B = B, N = N)
-  
-  cond = 5
-  while(cond > 0){
-    # draw a sample from the mixture density
-    S = samp.mixture(weights = distr$weights, lambda = distr$lambda, q = distr$q)
-    
-    # check for acceptance / rejection
-    Y1 = log.f_k(t = S, J = J, A = A, B = B)
-    Y2 = log.mixture_dens(t = S, m = distr$m, a = distr$a, lambda = distr$lambda, q = distr$q)
-    Y = Y1 - Y2
-    
-    U = log(runif(1))
-    
-    # accounting for cases when both log f_k(S) and log cover_density(S) is -\infty 
-    # where S is the obtained sample 
-    if(is.na(Y)){
-      cond = 5
-    }
-    else cond = U - Y
-    # Accept the sample if U <=Y, else repeat the sampling step.
+  # The target density tends to a degenerate distribution at 0 as B tends to \infty
+  # Setting a threshold on B to avoid numerical issues
+  if(B >= 1e+09){
+    S = 1e-10
+    return(S)
   }
-  return(S)
+  else {
+    # parameters of the cover density
+    distr = param.mixture(J = J, A = A, B = B, N = N)
+    
+    cond = 5
+    while(cond > 0){
+      
+      # draw a sample from the mixture density
+      S = samp.mixture(weights = distr$weights, lambda = distr$lambda, q = distr$q)
+      
+      # check for acceptance / rejection
+      Y1 = log.f_k(t = S, J = J, A = A, B = B)
+      Y2 = log.mixture_dens(t = S, m = distr$m, a = distr$a, lambda = distr$lambda, q = distr$q)
+      Y = Y1 - Y2
+      
+      U = log(runif(1))
+      
+      # accounting for cases when both log f_k(S) and log cover_density(S) is -\infty, 
+      # where S is the obtained sample 
+      if(is.infinite(Y1) | is.na(Y1) | is.infinite(Y2) | is.na(Y2) ){
+        cond = 5
+      }
+      else cond = U - Y
+      # Accept the sample if U <=Y, else repeat the sampling step.
+    }
+    return(S)
+  }
 }
 
 
@@ -165,6 +174,10 @@ update_Beta = function(N, Pi, gam, b0, u){
   log_u = sum(log(u))
   L = ncol(Pi); J = nrow(Pi); log.p = colSums(log(Pi))
   
+  # log.p tends to -\infty for unoccupied clusters
+  # setting a threshold of -10^10 for log.p to avoid numerical issues
+  log.p = sapply(1:L, function(x) ifelse(var(Pi[,x]) == 0, -1e+10, log.p))
+  
   # draw t_k from f_k(.), k = 1, 2,..., L.
   t = sapply(log.p, function(p) samp.f_k(N = N, J = J, log.p_k = p, 
                                          log_u = log_u, gam = gam, L = L, b0 = b0) )
@@ -204,7 +217,7 @@ blocked_gibbs = function(x, L.max, gam, phi.param, b0, N = 1,
   
   J = length(x)
   
-  # set initial values for running gibbs sampler
+  # set initial values for running the Gibbs sampler
   Pi = matrix(1/L.max, nrow = J, ncol = L.max)
   
   xi = phi.param[1]; lambda = phi.param[2]; tau = phi.param[3]
