@@ -100,6 +100,9 @@ hdp_slice_sampler <- function(y, beta0=1, gam0=1, ITRmax=50, Kcap=20, Tcap=20,
   
   while (itr <= ITRmax && !converged) {
     
+    # ADDED: time at the beginning
+    T1 = Sys.time()
+    
     # undpate gamma
     Pi = list()     # ADDED: list to store pi_jt using formula \pi_j = sum_{t} \gamma_jt \delta_{k_jt}
     gamp <- list()
@@ -213,6 +216,10 @@ hdp_slice_sampler <- function(y, beta0=1, gam0=1, ITRmax=50, Kcap=20, Tcap=20,
       
     } # endfor j
     
+    # ADDED: time at the end of all updates
+    T2 = Sys.time()
+    Tdiff =  difftime(T2, T1, units = "secs")
+    
     # ADDED: Calculate \pi_j = sum_{t} \gamma_jt \delta_{k_jt}
     for(j in 1:J){
       Pi[[j]] = sapply(1:Kcap, function(m) sum(gam[[j]][ kb[[j]] == m ]) )
@@ -237,7 +244,8 @@ hdp_slice_sampler <- function(y, beta0=1, gam0=1, ITRmax=50, Kcap=20, Tcap=20,
     
     # ADDED: store posterior samples 
     Iterates[[itr]] = list("Z" = z, "Pi" = Pi, "phi" = as.vector(phi_vec), "phi.ord" = dat$phi,
-                           "n.group" = dat$n.group, "density" = f,  "indices" = dat$ind)
+                           "n.group" = dat$n.group, "density" = f,  "indices" = dat$ind, 
+                           "time" = Tdiff)
     
     itr <- itr + 1
     if (itr %% 200 == 0) {
