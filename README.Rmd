@@ -22,11 +22,13 @@ Posterior computation in hierarchical Dirichlet process (HDP) mixture models is 
 
 ### Additional Functions
 
+-   **uBGS.R** - Functions to implement a truncated version of the unmarginalized blocked Gibbs algorithm described in Section 3.1 of [Amini et al. (2019)](https://arxiv.org/abs/1903.08829). The function `u_blocked_gibbs` performs posterior sampling using the truncated unmarginalized blocked Gibbs sampler.
+
 -   **CRF.R** - Functions to implement the Chinese restaurant franchise (CRF) ([Teh et al., 2006](https://people.eecs.berkeley.edu/~jordan/papers/hdp.pdf)) based collapsed Gibbs algorithm. The function `CRF_gibbs` performs posterior sampling using the CRF scheme.
 
 -   **SS.R** - Functions to implement the exact slice sampler ([Amini et al., 2019](https://arxiv.org/abs/1903.08829)). Code taken from [aaamini/hdpslicer](https://github.com/aaamini/hdpslicer/blob/master/hdp_inference.R) with minor modifications for fitting a univariate conjugate Gaussian mixture model. The function `hdp_slice_sampler` implements the exact slice sampler.
 
--   **postestimates.R** - Functions to get posterior estimates of cluster labels using the least squares clustering method ([Dahl, 2006](https://dahl.byu.edu/papers/dahl-2006.pdf)) and evaluate the log-likelihood of the Gaussian mixture model using posterior samples.
+-   **postestimates.R** - Functions to get posterior estimates of cluster labels using the least squares clustering method ([Dahl, 2006](https://dahl.byu.edu/papers/dahl-2006.pdf)), and evaluate the log-likelihood of the Gaussian mixture model using posterior samples.
 
 ## Example
 
@@ -78,7 +80,7 @@ true.Z = vector(mode = "list", length = J)
 # x[[j]] denotes observations in the jth group
 x = vector(mode = "list", length = J)
 
-set.seed(25)
+set.seed(2024)
 for(j in 1:J){
   true.Z[[j]] = sample(1:L, size = n[j], prob = Pi.true[j, ], replace = TRUE)
   x[[j]] = sapply(1:n[j], function(i) 
@@ -90,7 +92,7 @@ Specify the hyperparameters :
 
 ```{r}
 # Number of MCMC samples and Burn in period.
-M = 1000; M.burn = 500
+M = 1000; M.burn = 2000
 
 # hyperparameter specifications
 G = 1; B = 0.1; L.max = 10

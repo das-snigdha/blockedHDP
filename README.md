@@ -27,6 +27,12 @@ have good mixing.
 
 ### Additional Functions
 
+- **uBGS.R** - Functions to implement a truncated version of the
+  unmarginalized blocked Gibbs algorithm described in Section 3.1 of
+  [Amini et al. (2019)](https://arxiv.org/abs/1903.08829). The function
+  `u_blocked_gibbs` performs posterior sampling using the truncated
+  unmarginalized blocked Gibbs sampler.
+
 - **CRF.R** - Functions to implement the Chinese restaurant franchise
   (CRF) ([Teh et al.,
   2006](https://people.eecs.berkeley.edu/~jordan/papers/hdp.pdf)) based
@@ -42,7 +48,7 @@ have good mixing.
 
 - **postestimates.R** - Functions to get posterior estimates of cluster
   labels using the least squares clustering method ([Dahl,
-  2006](https://dahl.byu.edu/papers/dahl-2006.pdf)) and evaluate the
+  2006](https://dahl.byu.edu/papers/dahl-2006.pdf)), and evaluate the
   log-likelihood of the Gaussian mixture model using posterior samples.
 
 ## Example
@@ -103,7 +109,7 @@ true.Z = vector(mode = "list", length = J)
 # x[[j]] denotes observations in the jth group
 x = vector(mode = "list", length = J)
 
-set.seed(25)
+set.seed(2024)
 for(j in 1:J){
   true.Z[[j]] = sample(1:L, size = n[j], prob = Pi.true[j, ], replace = TRUE)
   x[[j]] = sapply(1:n[j], function(i) 
@@ -115,7 +121,7 @@ Specify the hyperparameters :
 
 ``` r
 # Number of MCMC samples and Burn in period.
-M = 1000; M.burn = 500
+M = 1000; M.burn = 2000
 
 # hyperparameter specifications
 G = 1; B = 0.1; L.max = 10
@@ -184,7 +190,7 @@ ARI.global = mcclust::arandi(unlist(Z.hat), unlist(true.Z))
 ARI.global
 ```
 
-    ## [1] 0.9344861
+    ## [1] 0.9574388
 
 ``` r
 # Adjusted Rand indices corresponding to group specific cluster labels
@@ -192,7 +198,7 @@ ARI = sapply(seq_len(J), function(j) mcclust::arandi(Z.hat[[j]], true.Z[[j]]))
 ARI
 ```
 
-    ## [1] 0.9600000 0.9199816 0.8611180
+    ## [1] 1.0000000 0.9290706 0.9356028
 
 Densities corresponding to each group is estimated using posterior
 samples.
