@@ -217,7 +217,7 @@ samp.mixture = function(weights, lambda, q){
 # q : points of intersection of the tangent lines
 log.mixture_dens = function(t, m, a, lambda, q){
   
-  if(t == Inf){
+  if(is.na(t) | is.infinite(t)){
     res = -Inf
   }
   else{
@@ -225,5 +225,5 @@ log.mixture_dens = function(t, m, a, lambda, q){
     res = tangent.eq(t = t, m = m[pos.t-1], a = a[pos.t-1], lambda = lambda[pos.t-1]) 
   }
   
-  return(res)
+  return(res[1])
 }
